@@ -42,12 +42,17 @@ Where `<mode>` is:
 
 #### Examples
 
-1. Switch to **Discrete GPU Mode** (requires restart):
+1. Switch to **NVIDIA Optimus Mode** (requires restart):
    ```powershell
-   .\OmenGfxMode.ps1 -Action Set -Mode 1
+   .\OmenGfxMode.ps1 -Action Set -Mode 2
    ```
 
-2. Switch to **Hybrid Mode** using **Dynamic Switch** (DDS, no restart required):
+2. Switch to **integrated GPU Mode** (requires restart):
+   ```powershell
+   .\OmenGfxMode.ps1 -Action Set -Mode 3
+   ```
+
+3. Switch to **Hybrid Mode** using **Dynamic Switch** (DDS, no restart required):
    ```powershell
    .\OmenGfxMode.ps1 -Action Set -Mode 0 -DynamicSwitch
    ```

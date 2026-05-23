@@ -160,14 +160,14 @@ switch ($Action) {
         Write-Host ("Switching Graphics Mode -> {0} ({1})  DDS={2}" -f $target,$Mode,$DynamicSwitch.IsPresent) -ForegroundColor Yellow
         $ok = Set-GfxMode -Mode $Mode -DynamicSwitch:$DynamicSwitch
         if ($ok) {
-            Write-Host "✔ Command successfully sent." -ForegroundColor Green
+            Write-Host "[OK] Command successfully sent." -ForegroundColor Green
             if (-not $DynamicSwitch) {
-                Write-Host "⚠ Non-DDS mode. A restart is required to take effect." -ForegroundColor Yellow
+                Write-Host "[Info] Non-DDS mode. A restart is required to take effect." -ForegroundColor Yellow
             }
             Start-Sleep -Milliseconds 500
             Get-GfxMode | Format-List
         } else {
-            Write-Host "✘ Failed to switch mode." -ForegroundColor Red
+            Write-Host "[Error] Failed to switch mode." -ForegroundColor Red
             exit 2
         }
     }

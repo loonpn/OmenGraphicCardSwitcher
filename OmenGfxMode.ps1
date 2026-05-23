@@ -1,24 +1,24 @@
 <#
 .SYNOPSIS
-    HP OMEN ÏÔ¿¨Ä£Ê½²é¿´/ÇÐ»»¹¤¾ß (PowerShell °æ)
+    HP OMEN Graphics Mode Switch Tool (PowerShell)
 
 .DESCRIPTION
-    Í¨¹ý HP BIOS WMI ½Ó¿Ú (root\wmi : hpqBIntM) »ñÈ¡»òÉèÖÃ¶ÀÏÔ/»ìºÏ/Optimus/UMA Ä£Ê½¡£
-    ±ØÐëÒÔ¹ÜÀíÔ±Éí·ÝÔËÐÐ¡£
+    Queries and modifies graphics modes on HP OMEN laptops using the BIOS WMI interface (root\wmi : hpqBIntM).
+    Provides options to switch between hybrid (default), discrete, Optimus, and UMA modes.
 
 .PARAMETER Action
-    Get  - »ñÈ¡µ±Ç°ÏÔ¿¨Ä£Ê½ (Ä¬ÈÏ)
-    Set  - ÉèÖÃÏÔ¿¨Ä£Ê½£¬ÐèÒªÅäºÏ -Mode
-
+    Get  - Query current graphics mode (default)
+    Set  - Switch graphics mode, requires -Mode
+    
 .PARAMETER Mode
-    Ä¿±êÄ£Ê½:
-        0 = Hybrid
-        1 = Discrete (¶ÀÏÔÖ±Á¬)
+    Target mode:
+        0 = Hybrid     (default mixed GPU operation)
+        1 = Discrete   (direct access to discrete GPU)
         2 = Optimus
-        3 = UMA
+        3 = UMA        (integrated GPU only)
 
 .PARAMETER DynamicSwitch
-    Ê¹ÓÃ¶¯Ì¬ÇÐ»» (DDS)£¬»úÐÍÖ§³ÖÊ±ÎÞÐèÖØÆô¡£
+    Leverages Dynamic Switch (DDS) for immediate mode change without reboot (if supported by the laptop model).
 
 .EXAMPLE
     .\OmenGfxMode.ps1
@@ -38,11 +38,11 @@ param(
     [switch]$DynamicSwitch
 )
 
-#region ---- ¹ÜÀíÔ±È¨ÏÞ¼ì²é ----
+#region ---- Administrator Check ----
 $current = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($current)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Warning "ÐèÒª¹ÜÀíÔ±È¨ÏÞÔËÐÐ£¬ÕýÔÚ³¢ÊÔÌáÈ¨..."
+    Write-Warning "Administrator privileges required. Attempting to elevate..."
     $psi = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" " +
            "-Action $Action " +
            $(if ($PSBoundParameters.ContainsKey('Mode')) { "-Mode $Mode " } else { "" }) +
@@ -54,7 +54,8 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 Add-Type -AssemblyName System.Management
 
-#region ---- Ã¶¾Ù ----
+#region ---- Graphics Mode Enum ----
+# C# GraphicsMode Enum: NotSupported = -1, Hybrid = 0, Discrete = 1, Optimus = 2, UMA = 3
 $GfxModeNames = @{
     0 = 'Hybrid'
     1 = 'Discrete'
@@ -91,7 +92,7 @@ function Send-OmenBiosWmi {
 
         $searcher = New-Object System.Management.ManagementObjectSearcher($ns, "SELECT * FROM $className")
         $bios     = $searcher.Get() | Select-Object -First 1
-        if (-not $bios) { Write-Warning "ÕÒ²»µ½ WMI Àà $className£¬¿ÉÄÜ²»ÊÇ HP/OMEN »úÐÍ¡£"; return $null }
+        if (-not $bios) { Write-Warning "Unable to locate WMI class $className. This may not be an HP OMEN laptop."; return $null }
 
         $inParams = $bios.GetMethodParameters($methodName)
         $inParams['InData'] = $dataIn
@@ -110,10 +111,10 @@ function Send-OmenBiosWmi {
             0x05 { 'Input or Output Size Too Small' }
             default { "0x{0:X}" -f $returnCode }
         }
-        Write-Warning ("SendOmenBiosWmi Ê§°Ü (CommandType=0x{0:X2}) - {1}" -f $CommandType,$msg)
+        Write-Warning ("Send-OmenBiosWmi failed (CommandType=0x{0:X2}) - {1}" -f $CommandType,$msg)
         return $null
     } catch {
-        Write-Warning "WMI Òì³£: $($_.Exception.Message)"
+        Write-Warning "WMI exception: $($_.Exception.Message)"
         return $null
     }
 }
@@ -140,33 +141,33 @@ function Set-GfxMode {
     return ($null -ne $r)
 }
 
-#region ---- Ö÷Èë¿Ú ----
+#region ---- Main Entry ----
 switch ($Action) {
     'Get' {
         $info = Get-GfxMode
         Write-Host ""
-        Write-Host "µ±Ç°ÏÔ¿¨Ä£Ê½: " -NoNewline
+        Write-Host "Current Graphics Mode: " -NoNewline
         Write-Host ("{0} (Value={1}, Raw={2})" -f $info.Name,$info.Value,$info.Raw) -ForegroundColor Cyan
         Write-Host ""
         $info
     }
     'Set' {
         if (-not $PSBoundParameters.ContainsKey('Mode')) {
-            Write-Error "Ê¹ÓÃ -Action Set Ê±±ØÐëÖ¸¶¨ -Mode (0~3)¡£"
+            Write-Error "You must specify -Mode (0~3) when using -Action Set."
             exit 1
         }
         $target = $GfxModeNames[[int]$Mode]
-        Write-Host ("ÕýÔÚÇÐ»»ÏÔ¿¨Ä£Ê½ -> {0} ({1})  DDS={2}" -f $target,$Mode,$DynamicSwitch.IsPresent) -ForegroundColor Yellow
+        Write-Host ("Switching Graphics Mode -> {0} ({1})  DDS={2}" -f $target,$Mode,$DynamicSwitch.IsPresent) -ForegroundColor Yellow
         $ok = Set-GfxMode -Mode $Mode -DynamicSwitch:$DynamicSwitch
         if ($ok) {
-            Write-Host "[OK] ÃüÁîÒÑ·¢ËÍ³É¹¦¡£" -ForegroundColor Green
+            Write-Host "âœ” Command successfully sent." -ForegroundColor Green
             if (-not $DynamicSwitch) {
-                Write-Host "[ÌáÊ¾] ·Ç¶¯Ì¬ÇÐ»»Ä£Ê½£¬ÐèÒªÖØÆôµçÄÔ²ÅÄÜÉúÐ§¡£" -ForegroundColor Yellow
+                Write-Host "âš  Non-DDS mode. A restart is required to take effect." -ForegroundColor Yellow
             }
             Start-Sleep -Milliseconds 500
             Get-GfxMode | Format-List
         } else {
-            Write-Host "[Error] ÇÐ»»Ê§°Ü¡£" -ForegroundColor Red
+            Write-Host "âœ˜ Failed to switch mode." -ForegroundColor Red
             exit 2
         }
     }

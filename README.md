@@ -67,6 +67,3 @@ Where `<mode>` is:
 
 - If the script fails with `NotSupported` when querying, your device likely does not support the `hpqBIntM` interface or the graphics switching feature.
 - Check your laptop’s BIOS menu for any additional configurations related to graphics mode switching.
-
-
-This version is fully translated and includes clearer English comments. It is functionally identical to the Chinese one.
